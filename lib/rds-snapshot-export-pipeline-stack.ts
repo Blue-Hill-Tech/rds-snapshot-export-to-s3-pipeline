@@ -1,6 +1,5 @@
 import * as cdk from "@aws-cdk/core";
 import * as path from "path";
-import {CfnCrawler} from "@aws-cdk/aws-glue";
 import {ManagedPolicy, PolicyDocument, Role, ServicePrincipal, AccountRootPrincipal} from "@aws-cdk/aws-iam";
 import {Code, Function, Runtime} from "@aws-cdk/aws-lambda";
 import {SnsEventSource} from "@aws-cdk/aws-lambda-event-sources";
@@ -101,29 +100,6 @@ export class RdsSnapshotExportPipelineStack extends cdk.Stack {
       ],
     });
 
-    const snapshotExportGlueCrawlerRole = new Role(this, "SnapshotExportsGlueCrawlerRole", {
-      assumedBy: new ServicePrincipal("glue.amazonaws.com"),
-      description: "Role used by RDS to perform snapshot exports to S3",
-      inlinePolicies: {
-        "SnapshotExportsGlueCrawlerPolicy": PolicyDocument.fromJson({
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Action": [
-                "s3:GetObject",
-                "s3:PutObject"
-              ],
-              "Resource": `${bucket.bucketArn}/*`,
-            }
-          ],
-        }),
-      },
-      managedPolicies: [
-        ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSGlueServiceRole"),
-      ],
-    });
-
     const snapshotExportEncryptionKey = new Key(this, "SnapshotExportEncryptionKey", {
       alias: props.dbName + "-snapshot-exports",
       policy: PolicyDocument.fromJson({
@@ -133,8 +109,7 @@ export class RdsSnapshotExportPipelineStack extends cdk.Stack {
             "Principal": {
               "AWS": [
                 (new AccountRootPrincipal()).arn,
-                lambdaExecutionRole.roleArn,
-                snapshotExportGlueCrawlerRole.roleArn
+                lambdaExecutionRole.roleArn
               ]
             },
             "Action": [
@@ -193,20 +168,6 @@ export class RdsSnapshotExportPipelineStack extends cdk.Stack {
       events: [
         new SnsEventSource(snapshotEventTopic)
       ]
-    });
-
-    new CfnCrawler(this, "SnapshotExportCrawler", {
-      name: props.dbName + "-rds-snapshot-crawler",
-      role: snapshotExportGlueCrawlerRole.roleArn,
-      targets: {
-        s3Targets: [
-          {path: bucket.bucketName},
-        ]
-      },
-      databaseName: props.dbName.replace(/[^a-zA-Z0-9_]/g, "_"),
-      schemaChangePolicy: {
-        deleteBehavior: 'DELETE_FROM_DATABASE'
-      }
     });
   }
 }

@@ -5,7 +5,7 @@ import { RdsSnapshotExportPipelineStack, RdsEventId } from '../lib/rds-snapshot-
 
 const app = new cdk.App();
 new RdsSnapshotExportPipelineStack(app, 'RdsSnapshotExportToS3Pipeline', {
-  dbName: '<existing-rds-database-name>',
+  dbName: 'bluehill-service-prod-cluster',
   rdsEventId: RdsEventId.DB_AUTOMATED_SNAPSHOT_CREATED,
-  s3BucketName: '<desired-s3-bucket-name>',
+  s3BucketName: 'bluehill-rds-backup',
 });

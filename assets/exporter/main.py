@@ -30,22 +30,19 @@ def handler(event, context):
         )
         return
 
-    logger.debug("EVENT INFO:")
-    logger.debug(json.dumps(event))
+    logger.info("EVENT INFO:")
+    logger.info(json.dumps(event))
 
     message = json.loads(event["Records"][0]["Sns"]["Message"])
 
-    if message["Event ID"].endswith(os.environ["RDS_EVENT_ID"]) and re.match(
-        "^rds:" + os.environ["DB_NAME"] + "-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}$",
-        message["Source ID"],
-    ):
+    if message["Event ID"].endswith(os.environ["RDS_EVENT_ID"]) and message["Source ID"].startswith(os.environ["DB_NAME"]):
         export_task_identifier = event["Records"][0]["Sns"]["MessageId"]
         account_id = boto3.client("sts").get_caller_identity()["Account"]
         response = boto3.client("rds").start_export_task(
             ExportTaskIdentifier=(
-                (message["Source ID"][4:27] + '-').replace("--", "-") + event["Records"][0]["Sns"]["MessageId"]
+                (message["Source ID"][0:25] + '-').replace("--", "-") + event["Records"][0]["Sns"]["MessageId"]
             ),
-            SourceArn=f"arn:aws:rds:{os.environ['AWS_REGION']}:{account_id}:snapshot:{message['Source ID']}",
+            SourceArn=message["Source ARN"],
             S3BucketName=os.environ["SNAPSHOT_BUCKET_NAME"],
             IamRoleArn=os.environ["SNAPSHOT_TASK_ROLE"],
             KmsKeyId=os.environ["SNAPSHOT_TASK_KEY"],
