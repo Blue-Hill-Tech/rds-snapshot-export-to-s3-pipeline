@@ -30,18 +30,16 @@ def handler(event, context):
         )
         return
 
-    logger.info("EVENT INFO:")
-    logger.info(json.dumps(event))
+    logger.info("EVENT INFO: %s", json.dumps(event))
 
     message = json.loads(event["Records"][0]["Sns"]["Message"])
 
-    if message["Event ID"].endswith(os.environ["RDS_EVENT_ID"]) and message["Source ID"].startswith(os.environ["DB_NAME"]):
-        export_task_identifier = event["Records"][0]["Sns"]["MessageId"]
+    if message["Event ID"].endswith(os.environ["RDS_EVENT_ID"]) and os.environ["DB_NAME"] in message["Source ID"]:
+        export_task_identifier = (message["Source ID"][0:59]).replace("--", "-").replace(":", "-")
+        logger.info("ExportTaskIdentifier: %s", export_task_identifier)
         account_id = boto3.client("sts").get_caller_identity()["Account"]
         response = boto3.client("rds").start_export_task(
-            ExportTaskIdentifier=(
-                (message["Source ID"][0:25] + '-').replace("--", "-") + event["Records"][0]["Sns"]["MessageId"]
-            ),
+            ExportTaskIdentifier=export_task_identifier,
             SourceArn=message["Source ARN"],
             S3BucketName=os.environ["SNAPSHOT_BUCKET_NAME"],
             IamRoleArn=os.environ["SNAPSHOT_TASK_ROLE"],
